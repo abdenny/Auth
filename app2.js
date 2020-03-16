@@ -7,13 +7,12 @@ app.use(cookieParser());
 app.use(
   sessions({
     secret: 'my puppy',
-    cookie: { secure: true }
+    cookie: { secure: false }
   })
 );
 
 app.get('/', (req, res) => {
-  let testGreeting = 'hello world';
-  req.session.testGreeting;
+  req.session.testGreeting = 'hello world';
   res.send('testing');
 });
 

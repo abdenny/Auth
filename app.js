@@ -2,35 +2,56 @@ const express = require('express');
 const app = express();
 const bodyParser = require('body-parser');
 const bcrypt = require('bcryptjs');
+let sessions = require('express-session');
+let cookieParser = require('cookie-parser');
 let db = require('./models');
 
 app.set('view engine', 'ejs');
 app.use(express.static('public'));
 app.use(bodyParser.urlencoded({ extended: false }));
+app.use(cookieParser());
+app.use(
+  sessions({
+    secret: 'my puppy',
+    cookie: { secure: false, maxAge: 14 * 24 * 60 * 60 * 1000 }
+  })
+);
 
 app.use(require('./routes/'));
 app.use(require('./routes/blogs.js'));
 app.use(require('./routes/editblogs.js'));
+
+let auth = (req, res, next) => {
+  // if user is logged in, execute next function. Otherwise redirect user ot /login.
+  if (req.session.userid) {
+    next();
+  } else {
+    res.redirect('/login');
+  }
+};
 
 app.get('/login', (req, res) => {
   res.render('login');
 });
 app.post('/login', (req, res) => {
   let username = req.body.username;
-  let password = req.body.password;
 
-  let auth = (req, res, next) => {
-    // if user is logged in, execute next function. Otherwise redirect user ot /login.
-  };
+  let password = req.body.password;
 
   db.users
     .findAll({ where: { username: username } })
     .then(results => {
       if (results.length > 0) {
-        //user has been found
-        //test password
-        //forward to
-        res.redirect('/');
+        bcrypt.compare(password, results[0].password, (err, response) => {
+          console.log(results[0].password);
+          console.log(password);
+          if (response) {
+            req.session.userid = username;
+            res.redirect('/');
+          } else {
+            res.redirect('/error');
+          }
+        });
       } else {
         res.redirect('/registration');
       }
@@ -76,6 +97,20 @@ app.post('/registration', (req, res) => {
     });
 });
 
+app.get('/error', (req, res) => {
+  res.send('error');
+});
+
+app.get('/protected', auth, (req, res) => {
+  res.send('protected');
+});
+
+app.get('/logout', (req, res) => {
+  req.session.destroy(err => {
+    console.log(err);
+  });
+  res.redirect('/');
+});
 app.listen(3000, () => {
   console.log('Listening on 3000');
 });
